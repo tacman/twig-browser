@@ -1,8 +1,11 @@
 {
-  "name": "@survos/twig-browser",
+  "name": "@tacman1123/twig-browser",
   "version": "0.1.0",
   "description": "Browser-only Twig subset renderer for Symfony + Stimulus",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run"
   },
@@ -14,7 +17,9 @@
   "files": [
     "src",
     "adapters",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "keywords": [
     "twig",

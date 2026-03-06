@@ -1,4 +1,4 @@
-# @survos/twig-browser
+# @tacman1123/twig-browser
 
 Browser-only Twig subset engine for modern ESM + importmap deployments.
 
@@ -37,14 +37,14 @@ Unsupported tags fail fast with diagnostics.
 <script type="importmap">
 {
   "imports": {
-    "@survos/twig-browser": "/assets/twig-browser/src/index.js",
-    "@survos/twig-browser/adapters/symfony": "/assets/twig-browser/adapters/symfony/installSymfonyTwigAPI.js"
+    "@tacman1123/twig-browser": "/assets/twig-browser/src/index.js",
+    "@tacman1123/twig-browser/adapters/symfony": "/assets/twig-browser/adapters/symfony/installSymfonyTwigAPI.js"
   }
 }
 </script>
 <script type="module">
-  import { createEngine, compileTwigBlocks, twigRender } from '@survos/twig-browser';
-  import { installSymfonyTwigAPI } from '@survos/twig-browser/adapters/symfony';
+  import { createEngine, compileTwigBlocks, twigRender } from '@tacman1123/twig-browser';
+  import { installSymfonyTwigAPI } from '@tacman1123/twig-browser/adapters/symfony';
 
   const registry = new Map();
   const engine = createEngine();
@@ -119,3 +119,9 @@ If these are missing, calls to `path()` or `ux_icon()` throw clear errors at ren
 - Add filters used in app templates (`merge`, `join`, `number_format`, `json_encode`).
 - Add snapshot/parity fixtures from upstream Twig.js tests and prioritize phase-1 compatibility lanes.
 - Add optional locutus-backed compat module (v3 named-export shape) where parity wins outweigh bundle size.
+
+## Release
+
+- Planned first tag: `v0.1.0`
+- NPM package: `@tacman1123/twig-browser`
+- Publish command: `npm publish --access public`
