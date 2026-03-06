@@ -1,6 +1,6 @@
 # Releasing
 
-## 0.1.0 checklist
+## Release checklist
 
 1. Verify tests pass:
    - `npm test`
@@ -11,8 +11,8 @@
 4. Publish public scoped package:
    - `npm publish --access public`
 5. Tag release in git:
-   - `git tag v0.1.0`
-   - `git push origin v0.1.0`
+   - `git tag v<version>`
+   - `git push origin v<version>`
 
 ## Notes
 

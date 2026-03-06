@@ -25,6 +25,8 @@ Current pattern is table-driven: compile a template once, iterate variable sets,
 
 - Output: `{{ expr }}`
 - Control flow: `{% if %}`, `{% elseif %}`, `{% else %}`, `{% endif %}`
+- Loops: `{% for item in list %}`, `{% for key, value in map %}`, `{% endfor %}`
+- Assignment: `{% set x = expr %}`, multi-assignment, `{% set x %}...{% endset %}`
 - Expressions: `and`, `or`, `not`, Elvis `?:`
 - Filters: `length`, `default`
 - Function calls: `path`, `ux_icon`, `stimulus_*`, `render`
@@ -114,14 +116,13 @@ If these are missing, calls to `path()` or `ux_icon()` throw clear errors at ren
 
 ## Next implementation steps
 
-- Expand expression parser beyond current subset (object literals, safer tokenization, clearer diagnostics).
-- Add `{% for %}` and `{% set %}` with fixture-driven tests.
+- Expand expression parser diagnostics around complex nested literals and edge operators.
 - Add filters used in app templates (`merge`, `join`, `number_format`, `json_encode`).
 - Add snapshot/parity fixtures from upstream Twig.js tests and prioritize phase-1 compatibility lanes.
 - Add optional locutus-backed compat module (v3 named-export shape) where parity wins outweigh bundle size.
 
 ## Release
 
-- Planned first tag: `v0.1.0`
+- Planned next tag: `v0.2.0`
 - NPM package: `@tacman1123/twig-browser`
 - Publish command: `npm publish --access public`
