@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@survos/twig-browser": "/assets/twig-browser/src/index.js",
+    "@survos/twig-browser/adapters/symfony": "/assets/twig-browser/adapters/symfony/installSymfonyTwigAPI.js"
+  }
+}
