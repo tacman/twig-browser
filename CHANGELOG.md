@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3 - 2026-03-08
+
+### Fixed
+- Object literals `{ key: expr|filter }` and array literals `[expr|filter]` now recursively transform their element expressions, so filters, `is` tests, and ternaries inside them all work correctly.
+- `transformIsTest` now uses the tokenizer (depth-aware) to locate the `is` keyword instead of a raw regex, so it no longer false-matches `is` inside object/array/paren sub-expressions.
+- Parenthesised expressions `(...)` that wrap a full sub-expression (e.g. `(_config.maxLen is defined)`) are now stripped and the inner expression is recursively transformed.
+- Standard ternary `condition ? then : else` is now fully transformed — all three sub-expressions are passed through `transformExpression`, so `is` tests and filters in any part work correctly.
+
 ## 0.4.1 - 2026-03-08
 
 ### Fixed

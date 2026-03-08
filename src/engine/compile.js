@@ -143,15 +143,103 @@ function transformIsTest(expression) {
   return negated ? `!(${call})` : call;
 }
 
+/**
+ * Transform a Twig object literal `{ key: expr, ... }` by recursively
+ * transforming each value expression. Keys are always plain identifiers or
+ * string literals and are passed through as-is.
+ */
+function transformObjectLiteral(expression) {
+  // Strip outer braces
+  const inner = expression.slice(1, expression.length - 1).trim();
+  if (!inner) return '{}';
+
+  // Split on top-level commas to get key:value pairs
+  const pairs = splitTopLevel(inner, ',');
+  const transformed = pairs.map(pair => {
+    pair = pair.trim();
+    if (!pair) return '';
+    // Find the first top-level colon (key separator)
+    const colonIdx = findTopLevelToken(pair, ':');
+    if (colonIdx === -1) {
+      // Shorthand or computed — just transform the whole thing
+      return transformExpression(pair);
+    }
+    const key = pair.slice(0, colonIdx).trim();
+    const value = pair.slice(colonIdx + 1).trim();
+    return `${key}: ${transformExpression(value)}`;
+  }).filter(Boolean);
+
+  return `{ ${transformed.join(', ')} }`;
+}
+
+/**
+ * Transform a Twig array literal `[ expr, ... ]` by recursively
+ * transforming each element expression.
+ */
+function transformArrayLiteral(expression) {
+  const inner = expression.slice(1, expression.length - 1).trim();
+  if (!inner) return '[]';
+  const elements = splitTopLevel(inner, ',').map(e => transformExpression(e.trim()));
+  return `[${elements.join(', ')}]`;
+}
+
 function transformExpression(rawExpression) {
   const expression = rawExpression.trim();
   if (!expression) {
     return 'undefined';
   }
 
+  // Object literal — recursively transform values so filters/is-tests inside work
+  if (expression[0] === '{') {
+    return transformObjectLiteral(expression);
+  }
+
+  // Array literal — recursively transform elements
+  if (expression[0] === '[') {
+    return transformArrayLiteral(expression);
+  }
+
+  // Parenthesised expression — strip parens and recursively transform inner content
+  if (expression[0] === '(') {
+    // Only strip if the closing ) matches the opening (
+    const tokens = tokenizeExpression(expression);
+    let depth = 0;
+    let closeIdx = -1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].value === '(') depth++;
+      if (tokens[i].value === ')') { depth--; if (depth === 0) { closeIdx = tokens[i].end; break; } }
+    }
+    if (closeIdx === expression.length) {
+      // The entire expression is wrapped in parens — strip and recurse
+      const inner = expression.slice(1, expression.length - 1).trim();
+      return `(${transformExpression(inner)})`;
+    }
+    // Otherwise fall through (partial parens, e.g. function call or ternary condition)
+  }
+
   // `is [not]` test — check before elvis/filter splitting since `is` contains no top-level operators
   const isTest = transformIsTest(expression);
   if (isTest !== null) return isTest;
+
+  // Standard ternary: condition ? then : else
+  // Must check before elvis (?:) since ? appears first
+  const qmarkIdx = findTopLevelToken(expression, '?');
+  if (qmarkIdx !== -1) {
+    // Distinguish `?:` (elvis) from `? ... :` (ternary)
+    const afterQ = expression.slice(qmarkIdx + 1).trimStart();
+    if (!afterQ.startsWith(':')) {
+      // It's a real ternary — find the matching top-level `:`
+      const condExpr = expression.slice(0, qmarkIdx).trim();
+      const rest = expression.slice(qmarkIdx + 1);
+      // Find top-level `:` in the rest
+      const colonIdx = findTopLevelToken(rest, ':');
+      if (colonIdx !== -1) {
+        const thenExpr = rest.slice(0, colonIdx).trim();
+        const elseExpr = rest.slice(colonIdx + 1).trim();
+        return `(${transformExpression(condExpr)}) ? (${transformExpression(thenExpr)}) : (${transformExpression(elseExpr)})`;
+      }
+    }
+  }
 
   const elvisIndex = findTopLevelToken(expression, '?:');
   if (elvisIndex !== -1) {

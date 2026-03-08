@@ -1,6 +1,6 @@
 {
   "name": "@tacman1123/twig-browser",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Browser-only Twig subset renderer for Symfony + Stimulus",
   "type": "module",
   "publishConfig": {
