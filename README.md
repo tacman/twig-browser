@@ -20,9 +20,13 @@ No `/dist`. No CommonJS. No Node runtime path.
 - Control flow: `{% if %}`, `{% elseif %}`, `{% else %}`, `{% endif %}`
 - Loops: `{% for item in list %}`, `{% for key, value in map %}`, `{% endfor %}`
 - Assignment: `{% set x = expr %}`, multi-assignment, `{% set x %}...{% endset %}`
-- Expressions: `and`, `or`, `not`, Elvis `?:`
-- Filters: `length`, `default`, `merge`
-- Functions: `path`, `ux_icon`, `stimulus_controller`, `stimulus_target`, `stimulus_action`, `render`
+- Expressions: `and`, `or`, `not`, Elvis `?:`, `is [not] <test>`
+
+**Filters:** `length`, `default`, `merge`, `raw`, `e`/`escape`, `upper`, `lower`, `capitalize`, `title`, `trim`, `striptags`, `nl2br`, `join`, `keys`, `first`, `last`, `reverse`, `sort`, `slice`, `split`, `abs`, `round`, `number_format`, `replace`, `format`, `url_encode`, `json_encode`, `date`
+
+**`is` tests:** `defined`, `null`/`none`, `empty`, `odd`, `even`, `iterable`, `divisibleby`, `sameas`
+
+**Functions:** `path`, `ux_icon`, `stimulus_controller`, `stimulus_target`, `stimulus_action`, `render`, `range`, `min`, `max`, `cycle`, `dump`
 
 Unsupported tags fail fast with clear diagnostics.
 
@@ -114,7 +118,9 @@ Fetches the URL, auto-detects whether it contains `<twig:block name="…">` wrap
 │   │   ├── twigRender.js               # render with registry guard
 │   │   └── loadTemplateFromUrl.js      # fetch URL → compile → return block name
 │   ├── extensions/
-│   │   ├── filters.js                  # length, default, merge
+│   │   ├── filters.js                  # all core filters
+│   │   ├── tests.js                    # is defined/null/empty/odd/even/iterable/…
+│   │   ├── functions.js                # range, min, max, cycle, dump
 │   │   └── stimulus.js                 # stimulus_controller / _target / _action
 │   └── testing/
 │       └── detailContextHeader.cases.js

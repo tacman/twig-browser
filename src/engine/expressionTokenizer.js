@@ -120,9 +120,29 @@ export function findTopLevelToken(input, value) {
   return -1;
 }
 
+/**
+ * Re-escape backslashes inside a quoted string token so they survive
+ * being embedded as a JS string literal in generated code.
+ *
+ * e.g. Twig "Y\m\d"  →  token value: "Y\m\d"  →  JS needs: "Y\\m\\d"
+ */
+function escapeStringToken(raw) {
+  if (raw.length < 2) return raw;
+  const quote = raw[0];
+  if (quote !== '"' && quote !== "'") return raw;
+  const inner = raw.slice(1, -1);
+  // Double any backslash that isn't already doubled
+  const reescaped = inner.replace(/\\(.)/g, (_, ch) => `\\\\${ch}`);
+  return `${quote}${reescaped}${quote}`;
+}
+
 export function replaceTwigLogicOperators(input) {
   const tokens = tokenizeExpression(input);
   const mapped = tokens.map((token) => {
+    if (token.type === 'string') {
+      return escapeStringToken(token.value);
+    }
+
     if (token.type !== 'identifier') {
       return token.value;
     }

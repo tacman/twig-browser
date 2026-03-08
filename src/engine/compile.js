@@ -53,11 +53,84 @@ function parseFilterCall(filterSpec) {
   };
 }
 
+/**
+ * Handle `x is [not] testName(args...)` expressions.
+ * Returns generated JS or null if no `is` pattern is found.
+ *
+ * Supports:
+ *   x is defined
+ *   x is not defined
+ *   x is empty
+ *   x is not empty
+ *   x is null
+ *   x is odd
+ *   x is even
+ *   x is iterable
+ *   x is divisibleby(3)
+ *   x is sameas(y)
+ */
+function transformIsTest(expression) {
+  // Match: <subject> is [not] <testName>[(args)]
+  const IS_TEST_RE = /^(.+?)\s+is\s+(not\s+)?(\w+)(\(.*\))?\s*$/s;
+  const m = expression.match(IS_TEST_RE);
+  if (!m) return null;
+
+  const [, subject, negated, testName, argsPart] = m;
+  const subjectTrimmed = subject.trim();
+
+  // Tests that need safe scope access (must not throw ReferenceError for absent vars).
+  // We read from __scope directly rather than evaluating through `with`.
+  const SAFE_SCOPE_TESTS = new Set(['defined', 'null', 'none', 'empty']);
+  if (SAFE_SCOPE_TESTS.has(testName)) {
+    // Build a safe reader for simple dotted paths: "x", "x.y", "x.y.z"
+    const parts = subjectTrimmed.split('.').map(p => p.trim());
+    let safeRead;
+    if (parts.length === 1) {
+      safeRead = `(${JSON.stringify(parts[0])} in __scope ? __scope[${JSON.stringify(parts[0])}] : undefined)`;
+    } else {
+      // chain: read each level safely
+      let acc = `(${JSON.stringify(parts[0])} in __scope ? __scope[${JSON.stringify(parts[0])}] : undefined)`;
+      for (let i = 1; i < parts.length; i++) {
+        acc = `(${acc} != null ? ${acc}[${JSON.stringify(parts[i])}] : undefined)`;
+      }
+      safeRead = acc;
+    }
+
+    if (testName === 'defined') {
+      const val = safeRead;
+      const check = `(${val} !== undefined && ${val} !== null)`;
+      return negated ? `!(${check})` : check;
+    }
+
+    // null / none / empty — use callTest with safe read
+    const call = `__helpers.callTest(${JSON.stringify(testName)}, (${safeRead}))`;
+    return negated ? `!(${call})` : call;
+  }
+
+  const subjectExpr = transformExpression(subjectTrimmed);
+
+  let argsExpr = '';
+  if (argsPart) {
+    // strip surrounding parens
+    const inner = argsPart.slice(1, -1).trim();
+    if (inner) {
+      argsExpr = ', ' + splitTopLevel(inner, ',').map(a => transformExpression(a.trim())).join(', ');
+    }
+  }
+
+  const call = `__helpers.callTest(${JSON.stringify(testName)}, (${subjectExpr})${argsExpr})`;
+  return negated ? `!(${call})` : call;
+}
+
 function transformExpression(rawExpression) {
   const expression = rawExpression.trim();
   if (!expression) {
     return 'undefined';
   }
+
+  // `is [not]` test — check before elvis/filter splitting since `is` contains no top-level operators
+  const isTest = transformIsTest(expression);
+  if (isTest !== null) return isTest;
 
   const elvisIndex = findTopLevelToken(expression, '?:');
   if (elvisIndex !== -1) {

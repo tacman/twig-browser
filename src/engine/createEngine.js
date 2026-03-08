@@ -1,6 +1,8 @@
 import { compileTemplate } from './compile.js';
 import { createStimulusHelpers } from '../extensions/stimulus.js';
 import { createCoreFilters } from '../extensions/filters.js';
+import { createCoreTests } from '../extensions/tests.js';
+import { createCoreFunctions } from '../extensions/functions.js';
 
 function missingIntegration(name, details = '') {
   const suffix = details ? ` ${details}` : '';
@@ -24,15 +26,27 @@ export function createEngine(options = {}) {
   const blockSources = new Map();
   const functions = new Map();
   const filters = new Map();
+  const tests = new Map();
 
+  // --- Stimulus helpers ---
   const stimulus = createStimulusHelpers();
   functions.set('stimulus_controller', stimulus.stimulus_controller);
   functions.set('stimulus_target', stimulus.stimulus_target);
   functions.set('stimulus_action', stimulus.stimulus_action);
 
+  // --- Core filters ---
   const coreFilters = createCoreFilters();
-  Object.entries(coreFilters).forEach(([name, fn]) => filters.set(name, fn));
+  Object.entries(coreFilters).forEach(([name, fn]) => filters.set(name, fn.bind(coreFilters)));
 
+  // --- Core tests ---
+  const coreTests = createCoreTests();
+  Object.entries(coreTests).forEach(([name, fn]) => tests.set(name, fn));
+
+  // --- Core functions ---
+  const coreFunctions = createCoreFunctions();
+  Object.entries(coreFunctions).forEach(([name, fn]) => functions.set(name, fn));
+
+  // --- Symfony integration stubs (overridden by installSymfonyTwigAPI) ---
   functions.set('path', (route, params = {}) => {
     if (typeof options.pathGenerator === 'function') {
       return options.pathGenerator(route, params);
@@ -54,6 +68,10 @@ export function createEngine(options = {}) {
 
     registerFilter(name, fn) {
       filters.set(name, fn);
+    },
+
+    registerTest(name, fn) {
+      tests.set(name, fn);
     },
 
     compileBlock(name, template) {
@@ -90,9 +108,18 @@ export function createEngine(options = {}) {
         return filter(value, ...args);
       };
 
+      const callTest = (testName, value, ...args) => {
+        const test = tests.get(testName);
+        if (!test) {
+          throw new Error(`Twig test \`${testName}\` is not registered.`);
+        }
+        return test(value, ...args);
+      };
+
       const helpers = {
         callFunction,
         callFilter,
+        callTest,
         elvis: createElvisEvaluator()
       };
 

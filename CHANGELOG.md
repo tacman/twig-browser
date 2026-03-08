@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.4.1 - 2026-03-08
+
+### Fixed
+- `date` filter: `null` / `undefined` input now returns `''` instead of the current date/time. `'now'` still returns the current time. This intentionally diverges from PHP Twig (which defaults null to now) because silently returning the current year from `book.published|date('Y')` is never useful.
+- `autoInstallFosRouting`: switched from `dynamic import()` of a JS module with `--callback` wrapper to `fetch()` of a plain `.json` file. The new expected route file is `public/js/fos_js_routes.json` (generated with `--format=json`). The URL is configurable via `options.routesUrl`.
+
+## 0.4.0 - 2026-03-08
+
+### Filters added
+- `raw` — pass HTML through unescaped
+- `e` / `escape` — HTML-escape a string
+- `upper`, `lower`, `capitalize`, `title` — string case
+- `trim` — with optional custom char set
+- `striptags`, `nl2br` — string cleaning
+- `join` — with separator and optional key glue
+- `keys`, `first`, `last`, `reverse`, `sort` — array/object
+- `slice(start, length)` — array and string
+- `split(delimiter, limit)` — string to array
+- `abs`, `round(precision, method)`, `number_format(decimals, decPoint, thousandsSep)` — numeric
+- `replace(pairs)`, `format(...args)`, `url_encode` — string manipulation
+- `json_encode(indent)` — JSON serialization
+- `date(format)` — PHP-style date formatting (Y, m, d, H, i, s, M, F, D, l, U, …); date-only strings parsed as UTC to avoid day-shift
+
+### `is` tests added
+- `is defined` / `is not defined` — safe scope check (no ReferenceError for absent vars)
+- `is null` / `is none`, `is empty`, `is odd`, `is even`, `is iterable`
+- `is divisibleby(n)`, `is sameas(value)`
+- `is null` and `is empty` also use safe scope access for undefined vars
+
+### Functions added
+- `range(low, high, step)` — numeric and character ranges
+- `min(...)`, `max(...)` — variadic or single array argument
+- `cycle(arr, position)` — circular array access
+- `dump(value)` — renders value as inspectable HTML; uses `<andypf-json-viewer>` web component when registered, falls back to `<pre class="twig-dump">` in tests/non-browser environments; scalars wrapped in `{value: ...}`
+
+### Engine fixes
+- Backslash escapes in Twig string literals (e.g. `date("Y\m\d")`) now correctly preserved through the expression compiler
+- `is` test expressions wired through new `__helpers.callTest()` in render scope
+- `engine.registerTest(name, fn)` API added
+
 ## 0.3.0 - 2026-03-08
 
 - Added `loadTemplateFromUrl(engine, url, blockName)` to the compat layer — fetches a template URL, auto-detects plain vs `<twig:block>` format, and compiles it into the engine. Exported from the main entrypoint.
