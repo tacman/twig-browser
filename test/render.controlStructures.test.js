@@ -60,6 +60,33 @@ describe('object literals with filters and is-tests', () => {
   });
 });
 
+describe('~ string concatenation operator', () => {
+  test('concatenates two strings', () => {
+    expect(render('{{ "foo" ~ "bar" }}')).toBe('foobar');
+  });
+  test('concatenates string and variable', () => {
+    expect(render('{{ "hit-" ~ id }}', { id: 42 })).toBe('hit-42');
+  });
+  test('chains multiple ~ operators', () => {
+    expect(render('{{ a ~ "-" ~ b }}', { a: 'foo', b: 'bar' })).toBe('foo-bar');
+  });
+  test('coerces null to empty string', () => {
+    expect(render('{{ "x-" ~ val }}', { val: null })).toBe('x-');
+  });
+  test('works inside set tag (mirrors bug report pattern)', () => {
+    expect(render(
+      "{% set collapseId = 'hit-' ~ pk ~ '-more' %}{{ collapseId }}",
+      { pk: 7 }
+    )).toBe('hit-7-more');
+  });
+  test('works combined with ?: elvis', () => {
+    expect(render(
+      "{% set id = 'hit-' ~ (pk ?: 'x') ~ '-more' %}{{ id }}",
+      { pk: null }
+    )).toBe('hit-x-more');
+  });
+});
+
 describe('for tag support', () => {
   test('supports single-variable array loops', () => {
     const actual = render('<ul>{% for img in images %}<li>{{ img.id }}</li>{% endfor %}</ul>', {

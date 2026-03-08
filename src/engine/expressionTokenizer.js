@@ -3,7 +3,7 @@ const IDENT_BODY = /[A-Za-z0-9_]/;
 const DIGIT = /[0-9]/;
 
 const TWO_CHAR_OPS = new Set(['?:', '==', '!=', '>=', '<=', '&&', '||']);
-const ONE_CHAR_SYMBOLS = new Set(['(', ')', '[', ']', '{', '}', '.', ',', ':', '?', '|', '+', '-', '*', '/', '%', '>', '<', '=', '!']);
+const ONE_CHAR_SYMBOLS = new Set(['(', ')', '[', ']', '{', '}', '.', ',', ':', '?', '|', '~', '+', '-', '*', '/', '%', '>', '<', '=', '!']);
 
 export function tokenizeExpression(input) {
   const tokens = [];

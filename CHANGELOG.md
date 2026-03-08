@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.4 - 2026-03-08
+
+### Added
+- `~` string concatenation operator — `'hit-' ~ id ~ '-more'` compiles to `String(a ?? '') + String(b ?? '') + ...`, coercing each operand to string and treating null/undefined as `''`.
+
 ## 0.4.3 - 2026-03-08
 
 ### Fixed

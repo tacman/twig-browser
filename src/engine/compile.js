@@ -248,6 +248,12 @@ function transformExpression(rawExpression) {
     return `__helpers.elvis((${transformExpression(left)}), (${transformExpression(right)}))`;
   }
 
+  // Twig `~` string concatenation operator → JS String() + String()
+  const concatParts = splitTopLevel(expression, '~');
+  if (concatParts.length > 1) {
+    return concatParts.map(p => `String(${transformExpression(p.trim())} ?? '')`).join(' + ');
+  }
+
   const filterParts = splitTopLevel(expression, '|');
   const base = replaceTwigLogicOperators(filterParts[0]);
   if (filterParts.length === 1) {
