@@ -48,6 +48,32 @@ export function createCoreFunctions() {
     },
 
     /**
+     * random() — mirrors PHP Twig's random():
+     *   - no args: random integer (0 to MAX_SAFE_INTEGER)
+     *   - integer arg: random integer between 0 and that number (inclusive)
+     *   - array arg: random element from the array
+     *   - string arg: random character from the string
+     */
+    random(value) {
+      if (value === undefined || value === null) {
+        return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+      }
+      if (Array.isArray(value)) {
+        return value[Math.floor(Math.random() * value.length)];
+      }
+      if (typeof value === 'string') {
+        return value.charAt(Math.floor(Math.random() * value.length));
+      }
+      const n = Number(value);
+      if (!isNaN(n)) {
+        const lo = Math.min(0, n);
+        const hi = Math.max(0, n);
+        return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+      }
+      return value;
+    },
+
+    /**
      * dump(value) — renders value as inspectable HTML.
      *
      * Uses <andypf-json-viewer> if the custom element is registered in the

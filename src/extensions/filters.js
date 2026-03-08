@@ -17,20 +17,25 @@ export function createCoreFilters() {
       return value;
     },
 
-    merge(value, addition) {
-      if (Array.isArray(value)) {
-        if (Array.isArray(addition)) return [...value, ...addition];
-        if (addition === null || addition === undefined) return [...value];
-        return [...value, addition];
-      }
-      if (value && typeof value === 'object') {
-        if (addition && typeof addition === 'object') return { ...value, ...addition };
-        return { ...value };
-      }
-      if (Array.isArray(addition)) return [...addition];
-      if (addition && typeof addition === 'object') return { ...addition };
-      if (addition === null || addition === undefined) return value;
-      return [value, addition];
+    merge(value, ...additions) {
+      // Fold all additions left-to-right so multi-arg form works:
+      //   arr|merge([a], [b])  →  [...arr, ...a, ...b]
+      //   obj|merge({a:1}, {b:2})  →  { ...obj, a:1, b:2 }
+      return additions.reduce((acc, addition) => {
+        if (Array.isArray(acc)) {
+          if (Array.isArray(addition)) return [...acc, ...addition];
+          if (addition === null || addition === undefined) return [...acc];
+          return [...acc, addition];
+        }
+        if (acc && typeof acc === 'object') {
+          if (addition && typeof addition === 'object') return { ...acc, ...addition };
+          return { ...acc };
+        }
+        if (Array.isArray(addition)) return [...addition];
+        if (addition && typeof addition === 'object') return { ...addition };
+        if (addition === null || addition === undefined) return acc;
+        return [acc, addition];
+      }, value);
     },
 
     // -------------------------------------------------------------------------

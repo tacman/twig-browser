@@ -217,6 +217,49 @@ function transformExpression(rawExpression) {
     // Otherwise fall through (partial parens, e.g. function call or ternary condition)
   }
 
+  // Function call: identifier(args) — transform arguments recursively.
+  // Only fires when the entire expression is `name(args)` where name is a
+  // simple identifier (no operators). This ensures pipes/is-tests inside
+  // arguments are handled. Must run before replaceTwigLogicOperators.
+  {
+    const tokens = tokenizeExpression(expression);
+    // The expression is a function call if:
+    //   - first token is an identifier
+    //   - second token is `(`
+    //   - last token is the matching `)`
+    if (
+      tokens.length >= 3 &&
+      tokens[0].type === 'identifier' &&
+      tokens[1]?.value === '(' &&
+      tokens[tokens.length - 1]?.value === ')'
+    ) {
+      // Verify the closing ) actually matches the opening ( at tokens[1]
+      let depth = 0;
+      let closeIdx = -1;
+      for (let i = 1; i < tokens.length; i++) {
+        if (tokens[i].value === '(') depth++;
+        else if (tokens[i].value === ')') {
+          depth--;
+          if (depth === 0) { closeIdx = i; break; }
+        }
+      }
+      if (closeIdx === tokens.length - 1) {
+        const callee = tokens[0].value;
+        const argsRaw = expression.slice(tokens[1].end, tokens[closeIdx].start).trim();
+        const argParts = argsRaw ? splitTopLevel(argsRaw, ',').map(a => transformExpression(a.trim())) : [];
+
+        // `attribute(obj, key)` → direct property access obj[key]
+        if (callee === 'attribute') {
+          if (argParts.length >= 2) {
+            return `(${argParts[0]})[${argParts[1]}]`;
+          }
+        }
+
+        return `__helpers.callFunction(${JSON.stringify(callee)}, [${argParts.join(', ')}])`;
+      }
+    }
+  }
+
   // `is [not]` test — check before elvis/filter splitting since `is` contains no top-level operators
   const isTest = transformIsTest(expression);
   if (isTest !== null) return isTest;
@@ -255,10 +298,12 @@ function transformExpression(rawExpression) {
   }
 
   const filterParts = splitTopLevel(expression, '|');
-  const base = replaceTwigLogicOperators(filterParts[0]);
   if (filterParts.length === 1) {
-    return base;
+    return replaceTwigLogicOperators(expression);
   }
+  // Base may itself be a function call with pipe args (e.g. range(1, n|default(3)))
+  // so recurse through transformExpression rather than replaceTwigLogicOperators.
+  const base = transformExpression(filterParts[0]);
 
   let output = base;
   for (let i = 1; i < filterParts.length; i += 1) {
