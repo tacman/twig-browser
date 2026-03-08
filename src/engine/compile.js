@@ -70,12 +70,33 @@ function parseFilterCall(filterSpec) {
  *   x is sameas(y)
  */
 function transformIsTest(expression) {
-  // Match: <subject> is [not] <testName>[(args)]
-  const IS_TEST_RE = /^(.+?)\s+is\s+(not\s+)?(\w+)(\(.*\))?\s*$/s;
-  const m = expression.match(IS_TEST_RE);
+  // Find a top-level `is` identifier token using the tokenizer so that `is`
+  // inside object literals / arrays / parentheses is never matched.
+  const tokens = tokenizeExpression(expression);
+  let depth = 0;
+  let isTokenIndex = -1;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.value === '(' || t.value === '[' || t.value === '{') { depth++; continue; }
+    if (t.value === ')' || t.value === ']' || t.value === '}') { depth--; continue; }
+    if (depth === 0 && t.type === 'identifier' && t.value === 'is') {
+      isTokenIndex = i;
+      break;
+    }
+  }
+  if (isTokenIndex === -1) return null;
+
+  const isToken = tokens[isTokenIndex];
+  const subject = expression.slice(0, isToken.start).trim();
+  if (!subject) return null;
+
+  // What follows `is`: optional `not`, then testName, optional `(args)`
+  const rest = expression.slice(isToken.end).trim();
+  const REST_RE = /^(not\s+)?(\w+)(\(.*\))?\s*$/s;
+  const m = rest.match(REST_RE);
   if (!m) return null;
 
-  const [, subject, negated, testName, argsPart] = m;
+  const [, negated, testName, argsPart] = m;
   const subjectTrimmed = subject.trim();
 
   // Tests that need safe scope access (must not throw ReferenceError for absent vars).

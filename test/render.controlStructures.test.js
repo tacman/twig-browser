@@ -32,6 +32,34 @@ describe('set tag support', () => {
   });
 });
 
+describe('object literals with filters and is-tests', () => {
+  test('pipe filter inside object literal compiles correctly', () => {
+    // Regression: splitTopLevel was treating | inside {} as a filter pipe
+    const actual = render('{% set cfg = { pk: _config.primaryKey|default("id") } %}{{ cfg.pk }}', {
+      _config: {}
+    });
+    expect(actual).toBe('id');
+  });
+
+  test('is defined inside object literal values does not corrupt expression', () => {
+    const actual = render(
+      '{% set cfg = { maxLen: (_config.maxLen is defined) ? _config.maxLen : 120 } %}{{ cfg.maxLen }}',
+      { _config: {} }
+    );
+    expect(actual).toBe('120');
+  });
+
+  test('mixed filters and is-tests in one object literal', () => {
+    // Mirrors the real failing template from the bug report
+    const template = `{% set cfg = {
+      pk:      _config.primaryKey|default('id'),
+      maxLen:  (_config.maxLen is defined) ? _config.maxLen : 99
+    } %}{{ cfg.pk }}/{{ cfg.maxLen }}`;
+    expect(render(template, { _config: { maxLen: 42 } })).toBe('id/42');
+    expect(render(template, { _config: {} })).toBe('id/99');
+  });
+});
+
 describe('for tag support', () => {
   test('supports single-variable array loops', () => {
     const actual = render('<ul>{% for img in images %}<li>{{ img.id }}</li>{% endfor %}</ul>', {
