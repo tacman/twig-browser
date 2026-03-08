@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 - 2026-03-08
+
+- Added `loadTemplateFromUrl(engine, url, blockName)` to the compat layer — fetches a template URL, auto-detects plain vs `<twig:block>` format, and compiles it into the engine. Exported from the main entrypoint.
+- Added `autoInstallFosRouting(engine, options)` to the Symfony adapter — async helper that dynamically imports `fos-routing` and `/js/fos_js_routes.js` when present, then wires `path()` into the engine. Silently no-ops if FOS routing is not installed.
+
 ## 0.2.0 - 2026-03-06
 
 - Added expression tokenization primitives for safer top-level parsing and operator normalization.

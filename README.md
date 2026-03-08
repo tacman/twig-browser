@@ -4,125 +4,133 @@ Browser-only Twig subset engine for modern ESM + importmap deployments.
 
 No `/dist`. No CommonJS. No Node runtime path.
 
-## Current design
+## Features
 
 - Source-first ESM package (`type: module`), shipped from `src/`.
-- Import-map friendly public API.
-- Built-in support for `stimulus_controller`, `stimulus_target`, `stimulus_action`.
-- Built-in function names for Symfony compatibility: `path`, `ux_icon`, `render`.
-- `path` and `ux_icon` throw clear runtime errors until adapters are installed.
+- Importmap-friendly — works with Symfony AssetMapper out of the box.
+- Built-in `stimulus_controller`, `stimulus_target`, `stimulus_action` functions.
+- Built-in `path`, `ux_icon`, `render` function stubs — throw clear errors until adapters wire them up.
+- Symfony adapter for FOS JS Routing and UX Icons.
+- Auto-detection of FOS routing via `autoInstallFosRouting()`.
+- Template loading from URL via `loadTemplateFromUrl()`.
 
-## Testing
-
-- Runner: `vitest`
-- HTML comparison: `parse5` normalization
-- Shared fixture cases: `src/testing/detailContextHeader.cases.js`
-- Run tests: `npm test`
-
-Current pattern is table-driven: compile a template once, iterate variable sets, compare normalized HTML output.
-
-## Supported Twig subset (initial)
+## Supported Twig subset
 
 - Output: `{{ expr }}`
 - Control flow: `{% if %}`, `{% elseif %}`, `{% else %}`, `{% endif %}`
 - Loops: `{% for item in list %}`, `{% for key, value in map %}`, `{% endfor %}`
 - Assignment: `{% set x = expr %}`, multi-assignment, `{% set x %}...{% endset %}`
 - Expressions: `and`, `or`, `not`, Elvis `?:`
-- Filters: `length`, `default`
-- Function calls: `path`, `ux_icon`, `stimulus_*`, `render`
+- Filters: `length`, `default`, `merge`
+- Functions: `path`, `ux_icon`, `stimulus_controller`, `stimulus_target`, `stimulus_action`, `render`
 
-Unsupported tags fail fast with diagnostics.
+Unsupported tags fail fast with clear diagnostics.
 
-## Import map usage
+## Installation (Symfony AssetMapper)
 
-```html
-<script type="importmap">
-{
-  "imports": {
-    "@tacman1123/twig-browser": "/assets/twig-browser/src/index.js",
-    "@tacman1123/twig-browser/adapters/symfony": "/assets/twig-browser/adapters/symfony/installSymfonyTwigAPI.js"
-  }
-}
-</script>
-<script type="module">
-  import { createEngine, compileTwigBlocks, twigRender } from '@tacman1123/twig-browser';
-  import { installSymfonyTwigAPI } from '@tacman1123/twig-browser/adapters/symfony';
-
-  const registry = new Map();
-  const engine = createEngine();
-
-  installSymfonyTwigAPI(engine, { Routing, uxIconResolver: (name) => `<span>${name}</span>` });
-  compileTwigBlocks(engine, registry, 'show-pages-blocks');
-
-  const html = twigRender(engine, registry, 'detailContextHeader', {
-    image: null,
-    container: { id: 42, title: 'Demo Container', images: [1] }
-  });
-
-  document.querySelector('#target').innerHTML = html;
-</script>
+```bash
+php bin/console importmap:require @tacman1123/twig-browser
+php bin/console importmap:require "@tacman1123/twig-browser/adapters/symfony"
 ```
 
-## JS tree rendering target
+## Basic usage
 
-This engine is intended for render-on-demand UI updates (including jsTree node rendering). A typical flow:
+```js
+import { createEngine, compileTwigBlocks, twigRender } from '@tacman1123/twig-browser';
+import { installSymfonyTwigAPI } from '@tacman1123/twig-browser/adapters/symfony';
 
-1. Compile block templates once on page load.
-2. On jsTree node open/select events, call `twigRender(engine, registry, nodeTemplate, nodeData)`.
-3. Inject resulting HTML into node detail panes/tooltips/context sections.
+const engine = createEngine();
 
-Because rendering is synchronous and browser-only, node redraws are deterministic and easy to profile.
+installSymfonyTwigAPI(engine, {
+  Routing,                                          // FOS Routing instance
+  uxIconResolver: (name) => `<svg>…</svg>`          // UX Icons resolver
+});
+
+// Compile blocks from a <script id="my-blocks"> tag containing JSON
+compileTwigBlocks(engine, null, 'my-blocks');
+
+const html = twigRender(engine, null, 'blockName', { item });
+document.querySelector('#target').innerHTML = html;
+```
 
 ## Symfony adapter
 
-`installSymfonyTwigAPI(engine, options)` supports:
+### `installSymfonyTwigAPI(engine, options)`
 
-- `Routing` object with `.generate()`
-- or a direct `pathGenerator(route, params)` function
-- `uxIconResolver(name, attrs)` (or `iconResolver` alias)
+Wires `path()` and `ux_icon()` into the engine synchronously.
 
-If these are missing, calls to `path()` or `ux_icon()` throw clear errors at render time.
+```js
+import { installSymfonyTwigAPI } from '@tacman1123/twig-browser/adapters/symfony';
+
+installSymfonyTwigAPI(engine, {
+  Routing,                          // FOS Routing object with .generate()
+  // or:
+  pathGenerator: (route, params) => myRouter.generate(route, params),
+
+  uxIconResolver: (name, attrs) => iconMap[name] ?? '',
+  // or alias:
+  iconResolver: (name, attrs) => iconMap[name] ?? '',
+});
+```
+
+If `path()` or `ux_icon()` are called in a template before being configured, they throw a clear error at render time.
+
+### `autoInstallFosRouting(engine)`
+
+Async helper that auto-detects FOS JS Routing and wires `path()` — no config needed.
+
+```js
+import { autoInstallFosRouting } from '@tacman1123/twig-browser/adapters/symfony';
+
+const engine = createEngine();
+autoInstallFosRouting(engine); // fire-and-forget; no-op if fos-routing not installed
+```
+
+Dynamically imports `fos-routing` and `/js/fos_js_routes.js`. If both succeed, calls `Routing.setData()` and registers `path()`. Silently skips on any import failure.
+
+## Loading templates from a URL
+
+```js
+import { loadTemplateFromUrl } from '@tacman1123/twig-browser';
+
+const blockName = await loadTemplateFromUrl(engine, '/templates/hit.html.twig');
+const html = engine.renderBlock(blockName, { hit });
+```
+
+Fetches the URL, auto-detects whether it contains `<twig:block name="…">` wrappers or is a plain template, compiles it, and returns the primary block name.
 
 ## File layout
 
 ```text
 .
 ├── package.json
-├── LICENSE
-├── THIRD_PARTY_NOTICES.md
 ├── src/
-│   ├── index.js
-│   ├── testing/
-│   │   └── detailContextHeader.cases.js
+│   ├── index.js                        # exports: createEngine, compileTwigBlocks, twigRender, loadTemplateFromUrl
 │   ├── engine/
 │   │   ├── createEngine.js
 │   │   └── compile.js
 │   ├── compat/
-│   │   ├── compileTwigBlocks.js
-│   │   └── twigRender.js
-│   └── extensions/
-│       ├── filters.js
-│       └── stimulus.js
+│   │   ├── compileTwigBlocks.js        # compile <twig:block> tags from DOM or string
+│   │   ├── twigRender.js               # render with registry guard
+│   │   └── loadTemplateFromUrl.js      # fetch URL → compile → return block name
+│   ├── extensions/
+│   │   ├── filters.js                  # length, default, merge
+│   │   └── stimulus.js                 # stimulus_controller / _target / _action
+│   └── testing/
+│       └── detailContextHeader.cases.js
 └── adapters/
     └── symfony/
-        └── installSymfonyTwigAPI.js
+        └── installSymfonyTwigAPI.js    # installSymfonyTwigAPI + autoInstallFosRouting
 ```
 
-## License and attribution
+## Testing
 
-- License: BSD-2-Clause (`LICENSE`)
-- Upstream attribution: `THIRD_PARTY_NOTICES.md`
-- This keeps required upstream notice while allowing substantial ongoing rewrite work.
+```bash
+npm test
+```
 
-## Next implementation steps
+Table-driven fixture tests using Vitest and parse5 HTML normalization.
 
-- Expand expression parser diagnostics around complex nested literals and edge operators.
-- Add filters used in app templates (`merge`, `join`, `number_format`, `json_encode`).
-- Add snapshot/parity fixtures from upstream Twig.js tests and prioritize phase-1 compatibility lanes.
-- Add optional locutus-backed compat module (v3 named-export shape) where parity wins outweigh bundle size.
+## License
 
-## Release
-
-- Planned next tag: `v0.2.0`
-- NPM package: `@tacman1123/twig-browser`
-- Publish command: `npm publish --access public`
+BSD-2-Clause. See `THIRD_PARTY_NOTICES.md` for upstream Twig.js attribution.
