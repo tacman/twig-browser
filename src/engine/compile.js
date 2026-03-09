@@ -393,6 +393,9 @@ function transformExpression(rawExpression) {
         const elseExpr = rest.slice(colonIdx + 1).trim();
         return `(${transformExpression(condExpr)}) ? (${transformExpression(thenExpr)}) : (${transformExpression(elseExpr)})`;
       }
+      // No `:` — short ternary `a ? b` (Twig: returns b if a is truthy, else '')
+      const thenExpr = rest.trim();
+      return `(${transformExpression(condExpr)}) ? (${transformExpression(thenExpr)}) : ''`;
     }
   }
 
