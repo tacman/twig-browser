@@ -5,7 +5,7 @@ import {
   tokenizeExpression
 } from './expressionTokenizer.js';
 
-const TOKEN_REGEX = /({{[\s\S]*?}}|{%[\s\S]*?%})/g;
+const TOKEN_REGEX = /({#[\s\S]*?#}|{{[\s\S]*?}}|{%[\s\S]*?%})/g;
 
 function escapeText(text) {
   return text.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
@@ -91,12 +91,69 @@ function transformIsTest(expression) {
   if (!subject) return null;
 
   // What follows `is`: optional `not`, then testName, optional `(args)`
-  const rest = expression.slice(isToken.end).trim();
-  const REST_RE = /^(not\s+)?(\w+)(\(.*\))?\s*$/s;
-  const m = rest.match(REST_RE);
-  if (!m) return null;
+  // Parse using the tokenizer so greedy `.*` can't swallow `and`/`or` after args.
+  const restTokens = tokenizeExpression(expression.slice(isToken.end));
+  if (restTokens.length === 0) return null;
 
-  const [, negated, testName, argsPart] = m;
+  let rtIdx = 0;
+  let negated = '';
+  if (restTokens[rtIdx]?.type === 'identifier' && restTokens[rtIdx].value === 'not') {
+    negated = 'not ';
+    rtIdx++;
+  }
+  if (rtIdx >= restTokens.length || restTokens[rtIdx].type !== 'identifier') return null;
+  let testName = restTokens[rtIdx].value;
+  rtIdx++;
+
+  // Handle two-word test names
+  if (testName === 'same' && restTokens[rtIdx]?.value === 'as') {
+    testName = 'sameas'; rtIdx++;
+  } else if (testName === 'divisible' && restTokens[rtIdx]?.value === 'by') {
+    testName = 'divisibleby'; rtIdx++;
+  } else if (testName === 'starts' && restTokens[rtIdx]?.value === 'with') {
+    testName = 'startswith'; rtIdx++;
+  } else if (testName === 'ends' && restTokens[rtIdx]?.value === 'with') {
+    testName = 'endswith'; rtIdx++;
+  }
+
+  // Optional args — two forms:
+  //   (a) parenthesised:  `divisibleby(3)`, `sameas(x)`
+  //   (b) bare expression: `starts with '_'`, `ends with suffix`, `matches '/re/'`
+  let argsPart = null;
+  if (restTokens[rtIdx]?.value === '(') {
+    // form (a) — find matching close paren
+    let d = 0;
+    let closeRt = -1;
+    for (let j = rtIdx; j < restTokens.length; j++) {
+      if (restTokens[j].value === '(') d++;
+      else if (restTokens[j].value === ')') { d--; if (d === 0) { closeRt = j; break; } }
+    }
+    if (closeRt === -1) return null;
+    const openToken = restTokens[rtIdx];
+    const closeToken = restTokens[closeRt];
+    argsPart = expression.slice(isToken.end + openToken.start, isToken.end + closeToken.end);
+    rtIdx = closeRt + 1;
+  } else if (rtIdx < restTokens.length) {
+    // form (b) — bare argument expression up to (but not including) any top-level
+    // `and` / `or` identifier token, which belongs to an outer boolean expression.
+    let endRt = rtIdx;
+    let d = 0;
+    for (let j = rtIdx; j < restTokens.length; j++) {
+      const tok = restTokens[j];
+      if (tok.value === '(' || tok.value === '[' || tok.value === '{') { d++; continue; }
+      if (tok.value === ')' || tok.value === ']' || tok.value === '}') { d--; continue; }
+      if (d === 0 && tok.type === 'identifier' && (tok.value === 'and' || tok.value === 'or')) break;
+      endRt = j;
+    }
+    const firstTok = restTokens[rtIdx];
+    const lastTok  = restTokens[endRt];
+    const bareArg  = expression.slice(isToken.end + firstTok.start, isToken.end + lastTok.end);
+    argsPart = `(${bareArg})`;
+    rtIdx = endRt + 1;
+  }
+
+  // After consuming args there must be nothing left.
+  if (rtIdx < restTokens.length) return null;
   const subjectTrimmed = subject.trim();
 
   // Tests that need safe scope access (must not throw ReferenceError for absent vars).
@@ -260,9 +317,64 @@ function transformExpression(rawExpression) {
     }
   }
 
-  // `is [not]` test — check before elvis/filter splitting since `is` contains no top-level operators
+  // `is [not]` test — check before boolean/filter splitting since `is` contains no top-level operators
   const isTest = transformIsTest(expression);
   if (isTest !== null) return isTest;
+
+  // Top-level `and` / `or` / infix string tests — split and recurse.
+  // Also handles infix forms of string tests:
+  //   `x starts with y`  →  `x is starts with y`
+  //   `x ends with y`    →  `x is ends with y`
+  //   `x matches y`      →  `x is matches y`
+  //   `x not starts with y` (with preceding `not` token already handled by caller)
+  {
+    const tokens = tokenizeExpression(expression);
+    let depth = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.value === '(' || t.value === '[' || t.value === '{') { depth++; continue; }
+      if (t.value === ')' || t.value === ']' || t.value === '}') { depth--; continue; }
+      if (depth !== 0 || t.type !== 'identifier') continue;
+
+      if (t.value === 'and' || t.value === 'or') {
+        const op = t.value === 'and' ? '&&' : '||';
+        const left = expression.slice(0, t.start).trim();
+        const right = expression.slice(t.end).trim();
+        return `(${transformExpression(left)}) ${op} (${transformExpression(right)})`;
+      }
+
+      // Infix string-test operators: rewrite as `subject is <test> arg` and recurse.
+      // Handles optional `not` before the operator: `x not starts with y`
+      if (t.value === 'starts' || t.value === 'ends' || t.value === 'matches') {
+        const subject = expression.slice(0, t.start).trim();
+        if (!subject) continue; // `starts` as a variable name, not an operator
+        const rest = expression.slice(t.end).trim();
+        // rewrite as `subject is [not] <test> rest` and let transformIsTest handle it
+        return transformExpression(`${subject} is ${t.value} ${rest}`);
+      }
+
+      // `x not starts with y` — `not` immediately before `starts`/`ends`/`matches`
+      if (t.value === 'not') {
+        const next = tokens[i + 1];
+        if (depth === 0 && next?.type === 'identifier' &&
+            (next.value === 'starts' || next.value === 'ends' || next.value === 'matches')) {
+          const subject = expression.slice(0, t.start).trim();
+          if (!subject) continue;
+          const rest = expression.slice(next.end).trim();
+          return transformExpression(`${subject} is not ${next.value} ${rest}`);
+        }
+      }
+    }
+  }
+
+  // Null-coalescing `??` — maps directly to JS `??`. Check before `?` so the
+  // tokenizer's two-char `??` token is matched first.
+  const nullCoalesceIdx = findTopLevelToken(expression, '??');
+  if (nullCoalesceIdx !== -1) {
+    const left = expression.slice(0, nullCoalesceIdx).trim();
+    const right = expression.slice(nullCoalesceIdx + 2).trim();
+    return `(${transformExpression(left)}) ?? (${transformExpression(right)})`;
+  }
 
   // Standard ternary: condition ? then : else
   // Must check before elvis (?:) since ? appears first
@@ -299,6 +411,27 @@ function transformExpression(rawExpression) {
 
   const filterParts = splitTopLevel(expression, '|');
   if (filterParts.length === 1) {
+    // If the expression is a simple dotted path (e.g. `x`, `hit.name`, `_config.pk`),
+    // emit an explicit safe chain read from __scope so that missing variables return
+    // undefined (falsy) instead of throwing ReferenceError — matching PHP Twig behaviour.
+    {
+      const tokens = tokenizeExpression(expression);
+      const isDottedPath = tokens.length > 0 && tokens.every((t, i) =>
+        i % 2 === 0 ? t.type === 'identifier' : t.value === '.'
+      );
+      if (isDottedPath) {
+        const parts = tokens.filter(t => t.type === 'identifier').map(t => t.value);
+        // Reserve JS keywords / engine internals that should never be scope-read
+        const JS_GLOBALS = new Set(['true', 'false', 'null', 'undefined', 'NaN', 'Infinity']);
+        if (!JS_GLOBALS.has(parts[0])) {
+          let acc = `__scope[${JSON.stringify(parts[0])}]`;
+          for (let i = 1; i < parts.length; i++) {
+            acc = `(${acc} != null ? ${acc}[${JSON.stringify(parts[i])}] : undefined)`;
+          }
+          return acc;
+        }
+      }
+    }
     return replaceTwigLogicOperators(expression);
   }
   // Base may itself be a function call with pipe args (e.g. range(1, n|default(3)))
@@ -423,6 +556,12 @@ export function compileTemplate(template) {
 
     if (index > cursor) {
       code += `__out += \`${escapeText(template.slice(cursor, index))}\`;\n`;
+    }
+
+    // Twig comment — silently discard
+    if (token.startsWith('{#')) {
+      cursor = index + token.length;
+      continue;
     }
 
     if (token.startsWith('{{')) {

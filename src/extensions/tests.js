@@ -45,5 +45,30 @@ export function createCoreTests() {
     sameas(value, other) {
       return value === other;
     },
+
+    startswith(value, search) {
+      return String(value ?? '').startsWith(String(search ?? ''));
+    },
+
+    endswith(value, search) {
+      return String(value ?? '').endsWith(String(search ?? ''));
+    },
+
+    matches(value, pattern) {
+      // PHP regex delimiters: /pattern/flags or #pattern#flags etc.
+      // Strip the delimiter pair and extract flags.
+      const str = String(pattern ?? '');
+      const delim = str[0];
+      if (!delim) return false;
+      const end = str.lastIndexOf(delim, str.length - 1);
+      if (end === 0) return false;
+      const inner = str.slice(1, end);
+      const flags = str.slice(end + 1).replace(/[^gimsuy]/g, '');
+      try {
+        return new RegExp(inner, flags).test(String(value ?? ''));
+      } catch {
+        return false;
+      }
+    },
   };
 }

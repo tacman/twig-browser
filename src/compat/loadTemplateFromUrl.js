@@ -1,6 +1,6 @@
 /**
  * Fetch a Twig template from a URL, compile it into the engine, and return
- * the block name that was registered.
+ * a result object containing the block name and raw source.
  *
  * Two template formats are supported:
  *
@@ -14,7 +14,7 @@
  * @param {object}  engine     - twig-browser engine from createEngine()
  * @param {string}  url        - URL to fetch the template from
  * @param {string}  [blockName="hit"] - block name for plain templates
- * @returns {Promise<string>}  the primary block name that was compiled
+ * @returns {Promise<{blockName: string, source: string}>}
  */
 export async function loadTemplateFromUrl(engine, url, blockName = 'hit') {
   const res = await fetch(url);
@@ -25,15 +25,14 @@ export async function loadTemplateFromUrl(engine, url, blockName = 'hit') {
 
   if (source.includes('<twig:block')) {
     const { compileTwigBlocks } = await import('./compileTwigBlocks.js');
-    // Collect the first block name actually compiled so callers know what to render.
     let firstName = null;
     const trackingRegistry = {
       set: (name) => { if (!firstName) firstName = name; }
     };
     compileTwigBlocks(engine, trackingRegistry, source);
-    return firstName ?? blockName;
+    return { blockName: firstName ?? blockName, source };
   }
 
   engine.compileBlock(blockName, source);
-  return blockName;
+  return { blockName, source };
 }

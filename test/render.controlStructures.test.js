@@ -113,3 +113,31 @@ describe('for tag support', () => {
     expect(actual.replace(/\s+/g, '')).toBe('root[a][b]root');
   });
 });
+
+describe('?? null-coalescing operator', () => {
+  test('returns left when not null',  () => expect(render('{{ a ?? "x" }}', { a: 1 })).toBe('1'));
+  test('returns right when null',     () => expect(render('{{ a ?? "x" }}', { a: null })).toBe('x'));
+  test('returns right when missing',  () => expect(render('{{ a ?? "x" }}')).toBe('x'));
+  test('chained ??',                  () => expect(render('{{ a ?? b ?? "z" }}', { a: null, b: null })).toBe('z'));
+  test('with function call on left',  () => expect(render(
+    "{{ attribute(hit, key|default('id')) ?? 'none' }}",
+    { hit: { id: 42 }, key: null }
+  )).toBe('42'));
+});
+
+describe('undefined variable safety', () => {
+  test('missing var is falsy in if', () => expect(render('{% if x %}y{% else %}n{% endif %}')).toBe('n'));
+  test('null var is falsy in if',    () => expect(render('{% if x %}y{% else %}n{% endif %}', { x: null })).toBe('n'));
+  test('missing var outputs empty',  () => expect(render('{{ x }}')).toBe(''));
+  test('missing dotted path is falsy', () => expect(render('{% if a.b %}y{% else %}n{% endif %}')).toBe('n'));
+  test('missing dotted path outputs empty', () => expect(render('{{ a.b }}')).toBe(''));
+  test('truthy var works normally',  () => expect(render('{% if x %}y{% endif %}', { x: 'hi' })).toBe('y'));
+});
+
+describe('{# comments #}', () => {
+  test('inline comment is stripped',    () => expect(render('a{# comment #}b')).toBe('ab'));
+  test('comment at start',              () => expect(render('{# hi #}x')).toBe('x'));
+  test('comment at end',                () => expect(render('x{# hi #}')).toBe('x'));
+  test('comment inside if block',       () => expect(render('{% if true %}{# note #}y{% endif %}')).toBe('y'));
+  test('multiline comment is stripped', () => expect(render('a{#\n  multi\n  line\n#}b')).toBe('ab'));
+});

@@ -41,12 +41,50 @@ describe('is iterable', () => {
   test('string is not iterable', () => expect(render('{% if s is not iterable %}y{% endif %}', { s: 'hi' })).toBe('y'));
 });
 
-describe('is divisibleby', () => {
-  test('6 divisibleby 3', () => expect(render('{% if n is divisibleby(3) %}y{% endif %}', { n: 6 })).toBe('y'));
-  test('7 not divisibleby 3', () => expect(render('{% if n is not divisibleby(3) %}y{% endif %}', { n: 7 })).toBe('y'));
+describe('is sameas / same as', () => {
+  test('sameas (one word)',  () => expect(render('{% if a is sameas(b) %}y{% endif %}', { a: 'x', b: 'x' })).toBe('y'));
+  test('same as (two words)', () => expect(render('{% if a is same as(b) %}y{% endif %}', { a: 'x', b: 'x' })).toBe('y'));
+  test('not sameas',        () => expect(render('{% if a is not sameas(b) %}y{% endif %}', { a: 1, b: '1' })).toBe('y'));
+  test('not same as',       () => expect(render('{% if a is not same as(b) %}y{% endif %}', { a: 1, b: '1' })).toBe('y'));
 });
 
-describe('is sameas', () => {
-  test('same string',    () => expect(render('{% if a is sameas(b) %}y{% endif %}', { a: 'x', b: 'x' })).toBe('y'));
-  test('different vals', () => expect(render('{% if a is not sameas(b) %}y{% endif %}', { a: 1, b: '1' })).toBe('y'));
+describe('is divisibleby / divisible by', () => {
+  test('divisibleby (one word)',  () => expect(render('{% if n is divisibleby(3) %}y{% endif %}', { n: 6 })).toBe('y'));
+  test('divisible by (two words)', () => expect(render('{% if n is divisible by(3) %}y{% endif %}', { n: 6 })).toBe('y'));
+  test('not divisible by',        () => expect(render('{% if n is not divisible by(3) %}y{% endif %}', { n: 7 })).toBe('y'));
+});
+
+describe('starts with / ends with / matches', () => {
+  // `is` form
+  test('is starts with true',       () => expect(render("{% if k is starts with '_' %}y{% endif %}", { k: '_hidden' })).toBe('y'));
+  test('is starts with false',      () => expect(render("{% if k is starts with '_' %}y{% endif %}", { k: 'visible' })).toBe(''));
+  test('is not starts with',        () => expect(render("{% if k is not starts with '_' %}y{% endif %}", { k: 'visible' })).toBe('y'));
+  test('is ends with true',         () => expect(render("{% if s is ends with 'ing' %}y{% endif %}", { s: 'running' })).toBe('y'));
+  test('is ends with false',        () => expect(render("{% if s is ends with 'ing' %}y{% endif %}", { s: 'runner' })).toBe(''));
+  test('is matches true',           () => expect(render("{% if s is matches '/^\\\\d+$/' %}y{% endif %}", { s: '42' })).toBe('y'));
+  test('is matches false',          () => expect(render("{% if s is matches '/^\\\\d+$/' %}y{% endif %}", { s: 'abc' })).toBe(''));
+  // infix form (no `is`) — PHP Twig also accepts this
+  test('infix starts with true',    () => expect(render("{% if k starts with '_' %}y{% endif %}", { k: '_hidden' })).toBe('y'));
+  test('infix starts with false',   () => expect(render("{% if k starts with '_' %}y{% endif %}", { k: 'visible' })).toBe(''));
+  test('infix not starts with',     () => expect(render("{% if k not starts with '_' %}y{% endif %}", { k: 'visible' })).toBe('y'));
+  test('infix ends with true',      () => expect(render("{% if s ends with 'ing' %}y{% endif %}", { s: 'running' })).toBe('y'));
+});
+
+describe('is-tests combined with and/or', () => {
+  // Mirrors the real-world failure: `imageUrl is null and (v is not iterable) and (v is not same as(null))`
+  test('is null and is not null', () => {
+    expect(render('{% if a is null and b is not null %}y{% endif %}', { a: null, b: 1 })).toBe('y');
+    expect(render('{% if a is null and b is not null %}y{% endif %}', { a: null, b: null })).toBe('');
+  });
+  test('is null or is defined', () => {
+    expect(render('{% if a is null or b is defined %}y{% endif %}', { a: 1, b: 2 })).toBe('y');
+    expect(render('{% if a is null or b is defined %}y{% endif %}', { a: 1 })).toBe('');
+  });
+  test('is-test and plain condition', () => {
+    expect(render('{% if a is null and flag %}y{% endif %}', { a: null, flag: true })).toBe('y');
+    expect(render('{% if a is null and flag %}y{% endif %}', { a: null, flag: false })).toBe('');
+  });
+  test('is sameas combined with and', () => {
+    expect(render('{% if a is sameas(1) and b is sameas(2) %}y{% endif %}', { a: 1, b: 2 })).toBe('y');
+  });
 });

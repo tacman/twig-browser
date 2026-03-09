@@ -58,7 +58,19 @@ export function createEngine(options = {}) {
     if (typeof options.uxIconResolver === 'function') {
       return options.uxIconResolver(name, attrs);
     }
-    missingIntegration('ux_icon', 'Install the Symfony adapter with a UX icon resolver.');
+    // Default: read from window.__survosIconsMap populated by bin/console ux:icons:lock
+    if (typeof window !== 'undefined' && window.__survosIconsMap) {
+      if (!name) return '';
+      const svg = window.__survosIconsMap[name];
+      if (!svg) {
+        console.warn(`[twig-browser] ux_icon("${name}") not found in __survosIconsMap — run: bin/console ux:icons:lock`);
+        return `<span class="ux-icon-fallback" title="${name}" style="font-size:.75em;opacity:.6">${name}</span>`;
+      }
+      return (attrs?.class)
+        ? `<span class="${String(attrs.class)}">${svg}</span>`
+        : svg;
+    }
+    missingIntegration('ux_icon', 'No uxIconResolver provided and window.__survosIconsMap is not set. Run: bin/console ux:icons:lock');
   });
 
   const engine = {
@@ -120,18 +132,20 @@ export function createEngine(options = {}) {
         callFunction,
         callFilter,
         callTest,
-        elvis: createElvisEvaluator()
+        elvis: createElvisEvaluator(),
       };
 
-      const scope = {
+      const rawScope = {
         ...vars,
         ...runtime,
         render: (blockName, renderVars = {}) => callFunction('render', [blockName, renderVars])
       };
 
       for (const [fnName] of functions) {
-        scope[fnName] = (...args) => callFunction(fnName, args);
+        rawScope[fnName] = (...args) => callFunction(fnName, args);
       }
+
+      const scope = rawScope;
 
       try {
         return renderer(scope, helpers);
