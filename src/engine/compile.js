@@ -246,14 +246,37 @@ function transformExpression(rawExpression) {
     return 'undefined';
   }
 
-  // Object literal — recursively transform values so filters/is-tests inside work
+  // Object literal — recursively transform values so filters/is-tests inside work.
+  // Only dispatch when the closing `}` is the very last character.
   if (expression[0] === '{') {
-    return transformObjectLiteral(expression);
+    const tokens = tokenizeExpression(expression);
+    let depth = 0;
+    let closeIdx = -1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].value === '{') depth++;
+      if (tokens[i].value === '}') { depth--; if (depth === 0) { closeIdx = tokens[i].end; break; } }
+    }
+    if (closeIdx === expression.length) {
+      return transformObjectLiteral(expression);
+    }
+    // Otherwise fall through
   }
 
-  // Array literal — recursively transform elements
+  // Array literal — recursively transform elements.
+  // Only dispatch when the closing `]` is the very last character (i.e. the
+  // entire expression is the array literal, not e.g. `["a","b"]|join(", ")`).
   if (expression[0] === '[') {
-    return transformArrayLiteral(expression);
+    const tokens = tokenizeExpression(expression);
+    let depth = 0;
+    let closeIdx = -1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].value === '[') depth++;
+      if (tokens[i].value === ']') { depth--; if (depth === 0) { closeIdx = tokens[i].end; break; } }
+    }
+    if (closeIdx === expression.length) {
+      return transformArrayLiteral(expression);
+    }
+    // Otherwise fall through — the `[...]` is followed by filters/operators
   }
 
   // Parenthesised expression — strip parens and recursively transform inner content

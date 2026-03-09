@@ -55,6 +55,8 @@ describe('join', () => {
   test('joins array with separator', () => expect(render('{{ a|join(", ") }}', { a: ['x', 'y', 'z'] })).toBe('x, y, z'));
   test('joins with empty separator', () => expect(render('{{ a|join }}', { a: ['a', 'b'] })).toBe('ab'));
   test('joins object values', () => expect(render('{{ o|join("-") }}', { o: { a: 1, b: 2 } })).toBe('1-2'));
+  test('inline array literal with string-separator filter', () => expect(render('{{ ["a","b","c"]|join(", ") }}')).toBe('a, b, c'));
+  test('inline array literal with simple separator filter', () => expect(render('{{ [1,2,3]|join("-") }}')).toBe('1-2-3'));
 });
 
 describe('keys', () => {
