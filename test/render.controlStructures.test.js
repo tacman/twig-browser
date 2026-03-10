@@ -151,6 +151,11 @@ describe('infix string tests', () => {
     `;
     expect(render(tpl, { value: 'https://example.org' }).trim()).toBe('yes');
   });
+
+  test('supports is string test', () => {
+    expect(render("{% if value is string %}yes{% else %}no{% endif %}", { value: 'abc' }).trim()).toBe('yes');
+    expect(render("{% if value is string %}yes{% else %}no{% endif %}", { value: 123 }).trim()).toBe('no');
+  });
 });
 
 describe('{# comments #}', () => {

@@ -38,6 +38,16 @@ export function createCoreTests() {
       return Array.isArray(value) || (value !== null && typeof value === 'object');
     },
 
+    string(value) {
+      return typeof value === 'string' || value instanceof String;
+    },
+
+    numeric(value) {
+      if (typeof value === 'number') return Number.isFinite(value);
+      if (typeof value === 'string' && value.trim() !== '') return !Number.isNaN(Number(value));
+      return false;
+    },
+
     divisibleby(value, divisor) {
       return Number(value) % Number(divisor) === 0;
     },
