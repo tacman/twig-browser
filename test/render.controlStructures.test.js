@@ -134,6 +134,25 @@ describe('undefined variable safety', () => {
   test('truthy var works normally',  () => expect(render('{% if x %}y{% endif %}', { x: 'hi' })).toBe('y'));
 });
 
+describe('infix string tests', () => {
+  test('supports starts with chained with or (no recursion)', () => {
+    const tpl = `
+      {% set isUrl = value starts with 'http://' or value starts with 'https://' %}
+      {{ isUrl ? 'yes' : 'no' }}
+    `;
+    expect(render(tpl, { value: 'https://example.org' }).trim()).toBe('yes');
+    expect(render(tpl, { value: '/local/path' }).trim()).toBe('no');
+  });
+
+  test('supports explicit is starts with form', () => {
+    const tpl = `
+      {% set isSecure = value is starts with 'https://' %}
+      {{ isSecure ? 'yes' : 'no' }}
+    `;
+    expect(render(tpl, { value: 'https://example.org' }).trim()).toBe('yes');
+  });
+});
+
 describe('{# comments #}', () => {
   test('inline comment is stripped',    () => expect(render('a{# comment #}b')).toBe('ab'));
   test('comment at start',              () => expect(render('{# hi #}x')).toBe('x'));
