@@ -165,3 +165,30 @@ describe('{# comments #}', () => {
   test('comment inside if block',       () => expect(render('{% if true %}{# note #}y{% endif %}')).toBe('y'));
   test('multiline comment is stripped', () => expect(render('a{#\n  multi\n  line\n#}b')).toBe('ab'));
 });
+
+describe('whitespace-control dashes {{- -}} and {%- -%}', () => {
+  test('{{- expr -}} strips dashes and renders value', () => {
+    expect(render('{{- name -}}', { name: 'Alice' })).toBe('Alice');
+  });
+  test('{{- expr -}} with null coalescing', () => {
+    expect(render('{{- a ?? b ?? c -}}', { b: 'fallback' })).toBe('fallback');
+    expect(render('{{- a ?? b ?? c -}}', { a: 'first' })).toBe('first');
+    expect(render('{{- a ?? b ?? c -}}', { c: 'last' })).toBe('last');
+  });
+  test('{%- if -%} strips dashes from tags', () => {
+    expect(render('{%- if show -%}yes{%- endif -%}', { show: true })).toBe('yes');
+    expect(render('{%- if show -%}yes{%- endif -%}', { show: false })).toBe('');
+  });
+  test('nodeLabel pattern: title with imageCount badge', () => {
+    const tpl = '{{- node.title ?? node.name ?? node.code -}}'
+      + '{% if node.imageCount > 0 %}'
+      + '<span class="badge">{{ node.imageCount }}</span>'
+      + '{% endif %}';
+    expect(render(tpl, { node: { title: 'Room 1', imageCount: 3 } }))
+      .toBe('Room 1<span class="badge">3</span>');
+    expect(render(tpl, { node: { name: 'fallback', imageCount: 0 } }))
+      .toBe('fallback');
+    expect(render(tpl, { node: { code: 'abc', imageCount: 1 } }))
+      .toBe('abc<span class="badge">1</span>');
+  });
+});

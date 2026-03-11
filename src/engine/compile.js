@@ -600,14 +600,20 @@ export function compileTemplate(template) {
     }
 
     if (token.startsWith('{{')) {
-      const expression = token.slice(2, -2).trim();
+      // Strip optional whitespace-control dashes: {{- expr -}}
+      let expression = token.slice(2, -2).trim();
+      if (expression.startsWith('-')) expression = expression.slice(1).trim();
+      if (expression.endsWith('-')) expression = expression.slice(0, -1).trim();
       const exprIndex = compiledExpr.push(compileExpression(expression)) - 1;
       code += `__out += String(__expr[${exprIndex}](__scope, __helpers) ?? "");\n`;
       cursor = index + token.length;
       continue;
     }
 
-    const tag = token.slice(2, -2).trim();
+    // Strip optional whitespace-control dashes: {%- tag -%}
+    let tag = token.slice(2, -2).trim();
+    if (tag.startsWith('-')) tag = tag.slice(1).trim();
+    if (tag.endsWith('-')) tag = tag.slice(0, -1).trim();
 
     if (tag.startsWith('if ')) {
       const exprIndex = compiledExpr.push(compileExpression(tag.slice(3).trim())) - 1;
