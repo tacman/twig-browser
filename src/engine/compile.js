@@ -366,6 +366,18 @@ function transformExpression(rawExpression) {
         return `(${transformExpression(left)}) ${op} (${transformExpression(right)})`;
       }
 
+      if (t.value === 'in') {
+        const prev = tokens[i - 1];
+        if (prev?.type === 'identifier' && prev.value === 'not') {
+          continue;
+        }
+
+        const left = expression.slice(0, t.start).trim();
+        const right = expression.slice(t.end).trim();
+        if (!left || !right) continue;
+        return `__helpers.inOperator((${transformExpression(left)}), (${transformExpression(right)}))`;
+      }
+
       // Infix string-test operators: rewrite as `subject is <test> arg` and recurse.
       // Handles optional `not` before the operator: `x not starts with y`
       if (t.value === 'starts' || t.value === 'ends' || t.value === 'matches') {
@@ -388,6 +400,13 @@ function transformExpression(rawExpression) {
       // `x not starts with y` — `not` immediately before `starts`/`ends`/`matches`
       if (t.value === 'not') {
         const next = tokens[i + 1];
+        if (depth === 0 && next?.type === 'identifier' && next.value === 'in') {
+          const left = expression.slice(0, t.start).trim();
+          const right = expression.slice(next.end).trim();
+          if (!left || !right) continue;
+          return `!(__helpers.inOperator((${transformExpression(left)}), (${transformExpression(right)})))`;
+        }
+
         if (depth === 0 && next?.type === 'identifier' &&
             (next.value === 'starts' || next.value === 'ends' || next.value === 'matches')) {
           const subject = expression.slice(0, t.start).trim();

@@ -21,6 +21,45 @@ function createElvisEvaluator() {
   };
 }
 
+function createInOperatorEvaluator() {
+  return (needle, haystack) => {
+    if (haystack == null) return false;
+
+    if (typeof haystack === 'string') {
+      if (needle == null) return false;
+      return haystack.includes(String(needle));
+    }
+
+    if (Array.isArray(haystack)) {
+      return haystack.some((item) => item == needle);
+    }
+
+    if (haystack instanceof Map) {
+      return haystack.has(needle);
+    }
+
+    if (haystack instanceof Set) {
+      for (const value of haystack) {
+        if (value == needle) return true;
+      }
+      return false;
+    }
+
+    if (typeof haystack === 'object') {
+      return Object.prototype.hasOwnProperty.call(haystack, needle);
+    }
+
+    if (typeof haystack?.[Symbol.iterator] === 'function') {
+      for (const value of haystack) {
+        if (value == needle) return true;
+      }
+      return false;
+    }
+
+    return false;
+  };
+}
+
 export function createEngine(options = {}) {
   const blocks = new Map();
   const blockSources = new Map();
@@ -133,6 +172,7 @@ export function createEngine(options = {}) {
         callFilter,
         callTest,
         elvis: createElvisEvaluator(),
+        inOperator: createInOperatorEvaluator()
       };
 
       const rawScope = {

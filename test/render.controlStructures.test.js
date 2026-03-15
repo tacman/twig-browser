@@ -158,6 +158,26 @@ describe('infix string tests', () => {
   });
 });
 
+describe('in / not in operator', () => {
+  test('supports substring containment for strings', () => {
+    expect(render("{% if 'http://' in value %}yes{% else %}no{% endif %}", { value: 'http://example.org/a.jpg' }).trim()).toBe('yes');
+    expect(render("{% if 'http://' in value %}yes{% else %}no{% endif %}", { value: 'https://example.org/a.jpg' }).trim()).toBe('no');
+  });
+
+  test('supports membership for arrays', () => {
+    expect(render("{% if 'jpg' in tags %}yes{% else %}no{% endif %}", { tags: ['png', 'jpg'] }).trim()).toBe('yes');
+  });
+
+  test('supports key lookup for objects', () => {
+    expect(render("{% if 'title' in hit %}yes{% else %}no{% endif %}", { hit: { title: 'A' } }).trim()).toBe('yes');
+    expect(render("{% if 'missing' in hit %}yes{% else %}no{% endif %}", { hit: { title: 'A' } }).trim()).toBe('no');
+  });
+
+  test('supports not in negation', () => {
+    expect(render("{% if 'http://' not in value %}yes{% else %}no{% endif %}", { value: 'https://example.org' }).trim()).toBe('yes');
+  });
+});
+
 describe('{# comments #}', () => {
   test('inline comment is stripped',    () => expect(render('a{# comment #}b')).toBe('ab'));
   test('comment at start',              () => expect(render('{# hi #}x')).toBe('x'));
