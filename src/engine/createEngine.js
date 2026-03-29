@@ -4,6 +4,9 @@ import { createCoreFilters } from '../extensions/filters.js';
 import { createCoreTests } from '../extensions/tests.js';
 import { createCoreFunctions } from '../extensions/functions.js';
 
+const RENDER_STACK = Symbol('twig-browser:render-stack');
+const MAX_RENDER_DEPTH = 64;
+
 function missingIntegration(name, details = '') {
   const suffix = details ? ` ${details}` : '';
   throw new Error(`Twig function \`${name}\` is not configured.${suffix}`);
@@ -133,15 +136,40 @@ export function createEngine(options = {}) {
     },
 
     renderBlock(name, vars = {}, runtime = {}) {
+      const runtimeScope = (runtime && typeof runtime === 'object') ? runtime : {};
+      const renderStack = Array.isArray(runtimeScope[RENDER_STACK])
+        ? runtimeScope[RENDER_STACK]
+        : [];
+
+      if (!Array.isArray(runtimeScope[RENDER_STACK])) {
+        runtimeScope[RENDER_STACK] = renderStack;
+      }
+
+      if (renderStack.includes(name)) {
+        const cycle = [...renderStack, name].join(' -> ');
+        throw new Error(`Infinite Twig block recursion detected: ${cycle}`);
+      }
+
+      if (renderStack.length >= MAX_RENDER_DEPTH) {
+        const chain = [...renderStack, name].join(' -> ');
+        throw new Error(`Twig block render depth exceeded (${MAX_RENDER_DEPTH}): ${chain}`);
+      }
+
+      renderStack.push(name);
+
       const renderer = blocks.get(name);
       if (!renderer) {
+        renderStack.pop();
+        if (renderStack.length === 0) {
+          delete runtimeScope[RENDER_STACK];
+        }
         throw new Error(`Twig block \`${name}\` was not compiled.`);
       }
 
       const callFunction = (fnName, args) => {
         if (fnName === 'render') {
           const [blockName, renderVars = {}] = args;
-          return engine.renderBlock(blockName, { ...vars, ...renderVars }, runtime);
+          return engine.renderBlock(blockName, { ...vars, ...renderVars }, runtimeScope);
         }
 
         const fn = functions.get(fnName);
@@ -177,7 +205,7 @@ export function createEngine(options = {}) {
 
       const rawScope = {
         ...vars,
-        ...runtime,
+        ...runtimeScope,
         render: (blockName, renderVars = {}) => callFunction('render', [blockName, renderVars])
       };
 
@@ -197,6 +225,11 @@ export function createEngine(options = {}) {
           console.error('[twig-browser] Render error:', error);
         }
         throw error;
+      } finally {
+        renderStack.pop();
+        if (renderStack.length === 0) {
+          delete runtimeScope[RENDER_STACK];
+        }
       }
     },
 

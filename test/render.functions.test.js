@@ -105,3 +105,20 @@ describe('pipe filter inside function arguments', () => {
     expect(render('{{ range(1, limit|default(3))|join(",") }}', { limit: 5 })).toBe('1,2,3,4,5');
   });
 });
+
+describe('render() recursion guard', () => {
+  test('throws clear error when a block renders itself', () => {
+    const engine = createEngine();
+    engine.compileBlock('loop', '{{ render("loop") }}');
+
+    expect(() => engine.renderBlock('loop')).toThrowError('Infinite Twig block recursion detected: loop -> loop');
+  });
+
+  test('throws clear error for indirect recursion', () => {
+    const engine = createEngine();
+    engine.compileBlock('a', '{{ render("b") }}');
+    engine.compileBlock('b', '{{ render("a") }}');
+
+    expect(() => engine.renderBlock('a')).toThrowError('Infinite Twig block recursion detected: a -> b -> a');
+  });
+});
