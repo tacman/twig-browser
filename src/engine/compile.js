@@ -381,19 +381,14 @@ function transformExpression(rawExpression) {
       // Infix string-test operators: rewrite as `subject is <test> arg` and recurse.
       // Handles optional `not` before the operator: `x not starts with y`
       if (t.value === 'starts' || t.value === 'ends' || t.value === 'matches') {
-        // If this operator is already part of an explicit `is` test
-        // (e.g. `value is starts with '_'`), do not rewrite again.
-        const prev = tokens[i - 1];
-        const prev2 = tokens[i - 2];
-        if ((prev?.type === 'identifier' && prev.value === 'is') ||
-            (prev?.type === 'identifier' && prev.value === 'not' && prev2?.type === 'identifier' && prev2.value === 'is')) {
-          continue;
-        }
+        // If there's already a top-level `is`, let transformIsTest handle it
+        const hasTopLevelIs = tokens.some(tok => tok.type === 'identifier' && tok.value === 'is');
+        if (hasTopLevelIs) continue;
 
         const subject = expression.slice(0, t.start).trim();
         if (!subject) continue; // `starts` as a variable name, not an operator
         const rest = expression.slice(t.end).trim();
-        // rewrite as `subject is [not] <test> rest` and let transformIsTest handle it
+        // rewrite as `subject is <test> rest` and let transformIsTest handle it
         return transformExpression(`${subject} is ${t.value} ${rest}`);
       }
 
