@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.0 - 2026-07-12
+
+First stable release. No breaking changes from 0.4.18 — this marks the API
+(expression compiler, filters, tests, functions, control structures) as
+settled after 14 downstream apps have run on it in production. From here,
+breaking changes bump the major version.
+
+### Fixed
+- `latest` dist-tag had been silently retagged back to `0.2.4` by a stale
+  local checkout publishing an unrelated patch release in June, breaking
+  every consumer's `importmap:update`. Publishing 1.0.0 restores `latest`
+  to the real, current code.
+- Added `prepublishOnly` guard (`scripts/check-not-regressed.mjs`) that
+  refuses to publish if the local version isn't newer than the registry's
+  current `latest`, so a stale checkout can't do this again.
+
 ## 0.4.4 - 2026-03-08
 
 ### Added
