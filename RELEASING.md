@@ -22,3 +22,8 @@
 - Third-party attribution: `THIRD_PARTY_NOTICES.md`
 - Consumers using Symfony AssetMapper should run `importmap:require` after each version bump
   to pull down updated vendored files.
+- `npm publish` runs `scripts/check-not-regressed.mjs` (via `prepublishOnly`), which refuses to
+  publish if `package.json`'s version isn't strictly newer than the registry's current `latest`.
+  This exists because a stale local checkout was once published over a much newer version,
+  silently retagging `latest` backward and breaking every consumer (2026-07). If this check
+  ever fires unexpectedly, it means you're publishing from the wrong commit — `git pull` first.

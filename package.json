@@ -7,7 +7,8 @@
     "access": "public"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "node scripts/check-not-regressed.mjs"
   },
   "exports": {
     ".": "./src/index.js",
